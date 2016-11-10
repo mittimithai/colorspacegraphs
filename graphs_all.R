@@ -86,6 +86,8 @@ spectrum.df$wl.labels[as.logical(spectrum.df$wavelength < 400 | spectrum.df$wave
 spectrum.df
 
 
+
+#this section needs to be run to translate rgl graphs with mouse, need to run this after you create the rgl window
 pan3d <- function(button) {
 start <- list()
 
@@ -108,6 +110,29 @@ rgl.setMouseCallbacks(button, begin, update)
 cat("Callbacks set on button", button, "of rgl device",rgl.cur(),"\n")
 }
 pan3d(2)
+
+
+
+#cone spectral sensitivities
+t.df <- o.df %>% gather(cone.type, response, L:S)
+
+ggplot(t.df, aes(x=wavelength,y=response,group=cone.type))+
+stat_wl_strip(alpha = 1, ymin = -Inf, ymax = Inf)+
+scale_fill_identity()+
+geom_line(color="white",size=2)+
+geom_text(data=data.frame(cone.type=c('L','M','S'),wavelength=c(605,505,460),response=c(0.8,0.8,0.8)), aes(label=cone.type),size=8,hjust=0,vjust=-1,color="white")+
+labs(x="wavelength (nm)", y="normalized cone sensitivity")+
+xlim(400,680)+
+theme(
+    axis.text = element_text(color="black",size = 12),
+    axis.title=element_text(face="bold", size=14),
+    panel.grid.major = element_line(colour = "grey50"),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "black")
+  )
+
+
+ggsave("cones.png")
 
 
 #run this 'with' block for the 3D LMS chart
