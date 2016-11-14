@@ -137,12 +137,12 @@ ggsave("cones.png")
 with(spectrum.df, {
  	if( rgl.cur() == 0 ) {
     rgl.open()
-    par3d(zoom= 0.6536796, userMatrix=matrix(c(0.972121298313141,0.171159878373146,0.160263866186142,0,0,0.683490395545959,-0.729959487915039,0,-0.23447859287262,0.709609150886536,0.664435565471649,0,0.192842816262267,0.20928195738179,4.70598084945095e-08,1),4,4),windowRect = c( 1748, 44, 3748, 1440 ) )
+    par3d(zoom= 0.6536796, userMatrix=matrix(c(0.972121298313141,0.171159878373146,0.160263866186142,0,0,0.683490395545959,-0.729959487915039,0,-0.23447859287262,0.709609150886536,0.664435565471649,0,0.207534619480768,0.234377896573699,6.63464732111873e-08,1),4,4),windowRect = c( 1539, 102, 3414, 1413 ) )
     rgl.bg(color = "black" )
   }
   rgl.clear(type = c("shapes", "bboxdeco"))
  # rgl.viewpoint(theta = 0, phi = -130, zoom = 1)
-  axes.title.size=2
+  axes.title.size=3
   axes3d( edges=c("x--", "y+-", "z--"), col="white", cex=2,nticks=5)
 	
 	box.color=rgb(0.6,0.6,0.6)
@@ -155,7 +155,7 @@ with(spectrum.df, {
     	
     
     rgl.texts(rbind(c(0.5,0,0),c(0,0,0.5)), text = c("L", "S"), color = "white",
-             adj = c(8, 8), cex = axes.title.size)
+             adj = c(6, 6), cex = axes.title.size)
     rgl.texts(rbind(c(1,0.5,0)), text = c("M"), color = "white",
              adj = c(-5, 0), cex = axes.title.size)        
     rgl.points(L,M,S,col=rgb(spectrum.df %>% select(R,G,B)),size=17) 
@@ -236,7 +236,7 @@ ggsave("LMStriangle.png")
 with(spectrum.df, {
  	if( rgl.cur() == 0 ) {
     rgl.open()
-    par3d(zoom= 0.6479588, userMatrix=matrix(c(0.972121298313141,0.171159878373146,0.160263866186142,0,0,0.683490395545959,-0.729959487915039,0,-0.23447859287262,0.709609150886536,0.664435565471649,0,0.223878460776204,0.14721071554287,2.24848451108039e-08,1),4,4),windowRect = c( 2455, 44, 4455, 1440 ) )
+    par3d(zoom= 0.5597312, userMatrix=matrix(c(0.85748153924942,0.32283341884613,0.400629490613937,0,0,0.778655052185059,-0.627452194690704,0,-0.514514744281769,0.538028657436371,0.667682349681854,0,-0.00482579399383098,0.195442820474495,3.23043413130719e-08,1),4,4),windowRect = c( 1525, 44, 3525, 1440 ) )
     rgl.bg(color = "black" )
   }
   rgl.clear(type = c("shapes", "bboxdeco"))
@@ -249,11 +249,11 @@ with(spectrum.df, {
   rgl.lines(c(0,0),c(1,1),c(0,1),color="white")
   rgl.lines(c(0,1),c(1,1),c(0,0),color="white")
     	
-  axes.title.size=2
+  axes.title.size=3
   rgl.texts(rbind(c(0.5,0,0),c(0,0,0.5)), text = c("X", "Z"), color = "white",
-             adj = c(8, 8), cex = axes.title.size)
+             adj = c(5, 5), cex = axes.title.size)
   rgl.texts(rbind(c(1,0.5,0)), text = c("Y"), color = "white",
-             adj = c(-10, 0), cex = axes.title.size)        
+             adj = c(-9, 0), cex = axes.title.size)        
   rgl.points(X,Y,Z,col=rgb(spectrum.df %>% select(R,G,B)),size=17,depth_test="always") 
   text3d(X,Y,Z,wl.labels,adj=c(0,-0.5),depth_test="always",cex=2)
     
