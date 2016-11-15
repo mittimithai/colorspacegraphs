@@ -379,14 +379,14 @@ label.size<-4.7
 dot.size<-4.5
 
 ggplot(g.xy.df,aes(x,y,fill="white"))+
-geom_polygon(color="white",fill="grey90",alpha=0.5)+
+geom_polygon(color="white",fill="grey90",alpha=0.9)+
 scale_color_identity()+
 scale_fill_identity()+
-geom_polygon(data=sRGB.df,color="black",fill="grey70",alpha=0.5)+
+geom_polygon(data=sRGB.df,color="black",fill="grey70",alpha=0.8)+
 geom_point(data=sRGB.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
-geom_polygon(data=ink.df,color="black",fill="grey60",alpha=0.5)+
+geom_polygon(data=ink.df,color="black",fill="grey60",alpha=0.8)+
 geom_point(data=ink.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
-geom_polygon(data=pigment.xy.df,color="black",linetype = 2,fill="grey50",alpha=0.5)+
+geom_polygon(data=pigment.xy.df,color="black",linetype = 2,fill="grey50",alpha=0.8)+
 geom_point(data=pigment.xy.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
 geom_text(data=g.xy.df %>% filter(wl.labels >= 525), aes(x,y,color=rgb(R,G,B),label=wl.labels),hjust=-0.5, vjust=0, cex=label.size)+
 geom_text(data=g.xy.df %>% filter(!(wl.labels >= 525), wl.labels>450), aes(x,y,color=rgb(R,G,B),label=wl.labels),hjust=1.3, vjust=0, cex=label.size)+
