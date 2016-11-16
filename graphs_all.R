@@ -293,6 +293,7 @@ sRGB.df
 xy2XYZ<-function(x,y,Y=1) {
 	X<-x*Y/y
 	Z<-(1-x-y)*Y/y
+	c(X,Y,Z)
 }
 
 XYZ2xy<-function(X,Y,Z) {
@@ -324,16 +325,14 @@ ink.df
 
 #https://en.wikipedia.org/wiki/Illuminant_D65
 xy.refwhite<-c(0.31271,0.32902)
-XYZ.refwhite<-c(95.047,100.00,108.883)
+XYZ.refwhite<-c(95.047,100.00,108.883)/25
 XYZ.refwhite.list<-as.list(XYZ.refwhite)
 
 
 #https://people.csail.mit.edu/jaffer/Color/winsor-newton-lab.txt
-
-yellowochre.Lab<-c(67.01,15.24,76.01)
-cadmiumred.Lab<-c(33.1,43.43,36.29)
-ultramarineblue.Lab<-c(30.85,17.31,-72.01)
-
+#for white https://www.gamblincolors.com/wp-content/uploads/2016/01/L-chart-of-all-27-samples-light-aged.pdf
+#ivory black dark		CIELab:21.87/0.73/5.13
+pigments<-list(yellowochre.Lab=c(67.01,15.24,76.01), cadmiumred.Lab=c(33.1,43.43,36.29), ultramarineblue.Lab=c(30.85,17.31,-72.01), titaniumwhite.Lab=c(95.6,-0.6,1.3))
 
 Lab2XYZ<-function(L,a,b,Xw,Yw,Zw){
 	fy<-(L+16)/116
@@ -343,13 +342,13 @@ Lab2XYZ<-function(L,a,b,Xw,Yw,Zw){
 	cie.eps<-216/24389
 	cie.kappa<-24389/27
 	
-	xr<-	fx^3
+	xr<-fx^3
 	if(fx^3<=cie.eps){
 		xr<-116*(fx^3-16)/cie.kappa
 	}
 	
 	yr<-((L+16)/116)^3
-	if(L<=cie.kappa*cie.eps){		
+	if(L<=(cie.kappa*cie.eps)){		
 		yr<-L/cie.kappa
 	}
 	
@@ -361,19 +360,22 @@ Lab2XYZ<-function(L,a,b,Xw,Yw,Zw){
 	c(xr,yr,zr)*c(Xw,Yw,Zw)
 }
 
-pigment.xy.df<-data.frame(do.call("rbind",lapply(list(ub=ultramarineblue.Lab,cr=cadmiumred.Lab,yo=yellowochre.Lab), function(x){
+pigment.xyz.df<-data.frame(do.call("rbind",lapply(pigments, function(x){
 	do.call("Lab2XYZ",append(x,XYZ.refwhite.list))
 	})))
+colnames(pigment.xyz.df)<-c('X','Y','Z')
+pigment.xyz.df
 
-pigment.xy.df
+pigment.rgb.df<-data.frame(do.call('rbind',lapply(as.list(data.frame(apply(pigment.xyz.df,1,c))) ,function(x){pmin(1,pmax(0,xyzrgbt %*% x))})))                  
+colnames(pigment.rgb.df)<-c('R','G','B')
+pigment.rgb.df
 
+pigment.xy.df<-data.frame(t(apply(pigment.xyz.df,1,function(x){x/sum(x)})))
 colnames(pigment.xy.df)<-c('x','y','z')
-pigment.xy.df<-data.frame(t(apply(pigment.xy.df,1,function(x){x/sum(x)})))
 pigment.xy.df
 
-
-pigment.xy.df<-pigment.xy.df %>% select(x,y)
-pigment.xy.df<-pigment.xy.df %>% mutate (R=c(0,1,1),G=c(0,0,1),B=c(1,0,0))
+pigment.df<-cbind(pigment.xyz.df,pigment.xy.df,pigment.rgb.df)
+pigment.df<-pigment.df %>% select(x,y,R,G,B)
 
 label.size<-4.7
 dot.size<-4.5
@@ -386,8 +388,8 @@ geom_polygon(data=sRGB.df,color="black",fill="grey70",alpha=0.8)+
 geom_point(data=sRGB.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
 geom_polygon(data=ink.df,color="black",fill="grey60",alpha=0.8)+
 geom_point(data=ink.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
-geom_polygon(data=pigment.xy.df,color="black",linetype = 2,fill="grey50",alpha=0.8)+
-geom_point(data=pigment.xy.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
+geom_polygon(data=pigment.df,color="black",linetype = 2,fill="grey50",alpha=0.8)+
+geom_point(data=pigment.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
 geom_text(data=g.xy.df %>% filter(wl.labels >= 525), aes(x,y,color=rgb(R,G,B),label=wl.labels),hjust=-0.5, vjust=0, cex=label.size)+
 geom_text(data=g.xy.df %>% filter(!(wl.labels >= 525), wl.labels>450), aes(x,y,color=rgb(R,G,B),label=wl.labels),hjust=1.3, vjust=0, cex=label.size)+
 geom_point(aes(color=rgb(R,G,B)),size=dot.size)+
