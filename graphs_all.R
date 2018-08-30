@@ -1,3 +1,5 @@
+rm(list = ls())
+
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -5,6 +7,7 @@ library(colorscience)
 library(scatterplot3d)
 library(rgl)
 library(geometry)
+library(matlib)
 
 #careful using datasets from colorscience packages, some are log some are linear and they aren't labelled in a way that makes it easy to tell...they should all be linear
 o.df<-StockmanSharpe2degCMFadj2000
@@ -34,9 +37,9 @@ lmss
 
 
 #http://www.cvrl.org/database/text/cienewxyz/cie2012xyz2.htm
-lmst<-t(matrix(c( 1.94735469,  -1.41445123,   0.36476327,
-                  0.68990272,   0.34832189,            0,
-                           0,            0,   1.93485343), 3,3))
+lmst<-matrix(c( 1.94735469,  -1.41445123,   0.36476327,
+                0.68990272,   0.34832189,            0,
+                0,            0,            1.93485343), byrow=T,3,3)
                               
 
 #https://en.wikipedia.org/wiki/SRGB
@@ -54,13 +57,15 @@ gammacor<-function(x){
 }
 
 
-xyzrgbt
-
 lms2xyz<-function(x){lmst %*% x}
                               
 lms2rgbtt<-function(x){((xyzrgbt %*% lmst) %*% x)}
 xyz.df<-data.frame(do.call("rbind",lapply(lmss,function(x){t(lms2xyz(x))})))
 colnames(xyz.df)<-c('X','Y','Z')
+
+lab.df<-t(apply(xyz.df,1,XYZ2Lab))
+colnames(lab.df)<-c('L*','a*','b*')
+lab.df
 
 rgb.df<-do.call("rbind",lapply(lmss,function(x){pmin(1,pmax(0,sapply(lms2rgbtt(x),gammacor)))}))
 colnames(rgb.df)<-c('R','G','B')
@@ -72,7 +77,7 @@ chromaticity.df<-spectrum.df %>% select(x=X,y=Y,z=Z)
 lmsnorm.df<-t(apply(lmsnorm.df,1,function(x){x/sum(x)}))
 chromaticity.df<-t(apply(chromaticity.df,1,function(x){x/sum(x)}))
 
-spectrum.df<-cbind(spectrum.df,lmsnorm.df,chromaticity.df) %>% mutate(wl.labels=as.character(wavelength))
+spectrum.df<-cbind(spectrum.df,lmsnorm.df,chromaticity.df,lab.df) %>% mutate(wl.labels=as.character(wavelength))
 spectrum.df$wl.labels[as.logical(spectrum.df$wavelength %% 15)]=""
 spectrum.df$wl.labels[as.logical(spectrum.df$wavelength < 400 | spectrum.df$wavelength > 630 | is.na(spectrum.df$wavelength))]=""
 
@@ -111,7 +116,8 @@ paste(userMatrix,collapse=",")
 windowRect
 
 #cone spectral sensitivities
-t.df <- spectrum.df %>% gather(cone.type, response, L:S)
+t.df <- spectrum.df %>% select(c(wavelength,L,M,S)) %>% gather(cone.type, response, c(L,M,S))
+t.df
 
 ggplot(t.df, aes(x=wavelength,y=response,group=cone.type,color=rgb(R,G,B)))+
 geom_point(size=2)+
@@ -131,6 +137,32 @@ scale_x_continuous(minor_breaks=seq(400,680,25), breaks=seq(400,680,50))
 
 
 ggsave("cones.png")
+
+
+
+#Lab spectral sensitivities
+t.df <- spectrum.df %>% select(c("wavelength",'L*','a*','b*')) %>% gather(primary, response, c('L*','a*','b*'))
+t.df
+
+ggplot(t.df, aes(x=wavelength,y=response,group=primary,color=primary))+
+  geom_point(size=2)+
+  geom_line()
+    
+    
+    geom_text(data=data.frame(cone.type=c('L*','a*','b*'), wavelength=c(605,505,460),response=c(0.8,0.8,0.8)), aes(label=cone.type),size=8,hjust=0,vjust=-1,color="white")+
+  labs(x="wavelength (nm)", y="normalized cone sensitivity")+
+  theme(
+    axis.text = element_text(color="black",size = 12),
+    axis.title=element_text(face="bold", size=14),
+    panel.grid.major = element_line(colour = "grey50"),
+    panel.grid.minor = element_line(colour = "grey40"),
+    panel.background = element_rect(fill = "black")
+  )+
+  scale_x_continuous(minor_breaks=seq(400,680,25), breaks=seq(400,680,50))
+
+
+ggsave("lab.png")
+
 
 
 #run this 'with' block for the 3D LMS chart
@@ -297,7 +329,7 @@ xy2XYZ<-function(x,y,Y=1) {
 }
 
 XYZ2xy<-function(X,Y,Z) {
-    denom<-X+Y+Z
+  denom<-X+Y+Z
 	x<-X/denom
 	y<-Y/denom
 	c(x,y)
@@ -332,7 +364,7 @@ XYZ.refwhite.list<-as.list(XYZ.refwhite)
 #https://people.csail.mit.edu/jaffer/Color/winsor-newton-lab.txt
 #for white https://www.gamblincolors.com/wp-content/uploads/2016/01/L-chart-of-all-27-samples-light-aged.pdf
 #ivory black dark		CIELab:21.87/0.73/5.13
-pigments<-list(yellowochre.Lab=c(67.01,15.24,76.01), cadmiumred.Lab=c(33.1,43.43,36.29), ultramarineblue.Lab=c(30.85,17.31,-72.01), titaniumwhite.Lab=c(95.6,-0.6,1.3))
+pigments<-list(yellowochre.Lab=c(67.01,15.24,76.01), cadmiumred.Lab=c(33.1,43.43,36.29), ultramarineblue.Lab=c(30.85,17.31,-72.01))
 
 Lab2XYZ<-function(L,a,b,Xw,Yw,Zw){
 	fy<-(L+16)/116
@@ -380,19 +412,83 @@ pigment.df<-pigment.df %>% select(x,y,R,G,B)
 label.size<-4.7
 dot.size<-4.5
 
+
+
+#from https://github.com/colour-science/colour/blob/83b2c224a18fa3a993c37e247c8095b77badb54b/colour/models/dataset/pointer_gamut.py
+pointer.gamut.xy.df<-as.data.frame(matrix(c(
+  0.659, 0.316,
+  0.634, 0.351,
+  0.594, 0.391,
+  0.557, 0.427,
+  0.523, 0.462,
+  0.482, 0.491,
+  0.444, 0.515,
+  0.409, 0.546,
+  0.371, 0.558,
+  0.332, 0.573,
+  0.288, 0.584,
+  0.242, 0.576,
+  0.202, 0.530,
+  0.177, 0.454,
+  0.151, 0.389,
+  0.151, 0.330,
+  0.162, 0.295,
+  0.157, 0.266,
+  0.159, 0.245,
+  0.142, 0.214,
+  0.141, 0.195,
+  0.129, 0.168,
+  0.138, 0.141,
+  0.145, 0.129,
+  0.145, 0.106,
+  0.161, 0.094,
+  0.188, 0.084,
+  0.252, 0.104,
+  0.324, 0.127,
+  0.393, 0.165,
+  0.451, 0.199,
+  0.508, 0.226),
+  ncol=2,byrow=T
+))
+colnames(pointer.gamut.xy.df)<-c('x','y')
+pointer.gamut.xy.df
+
+max.xyz.matrix<-matrix(c((spectrum.df %>% select(X,Y,Z,wl.labels) %>% filter(X==max(X)))[1,1],0,0,
+                     0,(spectrum.df %>% select(X,Y,Z,wl.labels) %>% filter(Y==max(Y)))[1,2],0,
+                     0,0,(spectrum.df %>% select(X,Y,Z,wl.labels) %>% filter(Z==max(Z)))[1,3]), ncol=3, byrow=T)
+
+pri.xyz.xy.df<-as.data.frame(t(apply(max.xyz.matrix,
+                       MARGIN=1,
+                       FUN=function(x){do.call(XYZ2xy,as.list(t(x)))})))
+
+colnames(pri.xyz.xy.df)<-c("x","y")
+pri.xyz.xy.df
+
+pri.lms.xy.df<-as.data.frame(apply( t(lmst),
+                                     MARGIN=1,
+                                     FUN=function(x){do.call(XYZ2xy,as.list(t(x)))}))
+
+
+colnames(pri.lms.xy.df)<-c('x','y')
+pri.lms.xy.df
+
 ggplot(g.xy.df,aes(x,y,fill="white"))+
-geom_polygon(color="white",fill="grey90",alpha=0.9)+
+geom_polygon(color="grey80",fill="grey80",alpha=0.9)+
 scale_color_identity()+
 scale_fill_identity()+
-geom_polygon(data=sRGB.df,color="black",fill="grey70",alpha=0.8)+
-geom_point(data=sRGB.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
-geom_polygon(data=ink.df,color="black",fill="grey60",alpha=0.8)+
-geom_point(data=ink.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
-geom_polygon(data=pigment.df,color="black",linetype = 2,fill="grey50",alpha=0.8)+
-geom_point(data=pigment.df,aes(x,y,color=rgb(R,G,B)), size=dot.size)+
+scale_shape_identity()+
+#geom_polygon(data=pri.xyz.xy.df, aes(x,y),color="white",alpha=0)+
+#geom_polygon(data=pri.lms.xy.df, aes(x,y),color="white",alpha=0)+
+#geom_polygon(data=pointer.gamut.xy.df, aes(x,y),color="black",fill="grey60",alpha=0.8)+
+geom_polygon(data=sRGB.df,color="black",fill="grey40",alpha=0.8)+
+geom_point(data=sRGB.df,aes(x,y,color=rgb(R,G,B)), size=dot.size, shape=15)+
+geom_polygon(data=ink.df,color="black",fill="grey10",alpha=0.8)+
+geom_point(data=ink.df,aes(x,y,color=rgb(R,G,B)), size=dot.size, shape=17)+
+#geom_polygon(data=pigment.df,color="black",linetype = 2,fill="grey50",alpha=0.8)+
+geom_point(data=pigment.df,aes(x,y,color=rgb(R,G,B)), size=dot.size, shape=3)+
 geom_text(data=g.xy.df %>% filter(wl.labels >= 525), aes(x,y,color=rgb(R,G,B),label=wl.labels),hjust=-0.5, vjust=0, cex=label.size)+
 geom_text(data=g.xy.df %>% filter(!(wl.labels >= 525), wl.labels>450), aes(x,y,color=rgb(R,G,B),label=wl.labels),hjust=1.3, vjust=0, cex=label.size)+
-geom_point(aes(color=rgb(R,G,B)),size=dot.size)+
+geom_point(aes(color=rgb(R,G,B)),size=dot.size, shape=16)+
 theme(
     axis.text = element_text(color="black",size = 12),
     axis.title=element_text(face="bold", size=14),
