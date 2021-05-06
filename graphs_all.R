@@ -8,13 +8,32 @@ library(scatterplot3d)
 library(rgl)
 library(geometry)
 library(matlib)
+library(tikzDevice)
+library(readr)
 
-#careful using datasets from colorscience packages, some are log some are linear and they aren't labelled in a way that makes it easy to tell...they should all be linear
-o.df<-StockmanSharpe2degCMFadj2000
+data_dir<-"./"
+
+#Stiles & Burch (1955) 2-deg, RGB CMFs
+sb.df<-read.csv(paste0(data_dir,"sbrgb2.csv"),header=F)
+colnames(sb.df)<-c("wavelength","r.lambda","g.lambda","b.lambda")
+sb.df
+#CIE 1931 2-deg, XYZ CMFs
+xyz.df<-read.csv(paste0(data_dir,"ciexyz31.csv"),header=F)
+colnames(xyz.df)<-c("wavelength","x.lambda","y.lambda","z.lambda")
+xyz.df
+#2-deg XYZ CMFs transformed from the CIE (2006) 2-deg LMS cone fundamentals
+o.df<-read.csv(paste0(data_dir,"linss2_10e_5.csv"),header=F)
+colnames(o.df)<-c("wavelength","l.lambda","m.lambda","s.lambda")
 o.df
-o.df[is.na(o.df)] <- 0
 
-colnames(o.df)=c("wavelength","L","M","S")
+o.df<-o.df %>% inner_join(sb.df,by="wavelength") %>% inner_join(xyz.df,by="wavelength")
+o.df
+
+pho.df<-read.csv(paste0(data_dir,"vljve.csv"),header=F)
+sco.df<-read.csv(paste0(data_dir,"scvle.csv"),header=F)
+
+colnames(pho.df)<-c("wavelength","V")
+colnames(sco.df)<-c("wavelength","Vp")
 
 purple1.wl<-400
 purple2.wl<-680
@@ -25,13 +44,13 @@ lms.purple1<-lms.df %>% filter(wavelength==purple1.wl)
 lms.purple2<-lms.df %>% filter(wavelength==purple2.wl)
 
 purple.funcs<-apply(rbind(lms.purple1,lms.purple2), 2, approxfun, x=c(purple1.wl, purple2.wl))
-purples.lms.df<-data.frame(t(sapply(seq(purple1.wl,purple2.wl,30),function(x){c(NA,purple.funcs$L(x),purple.funcs$M(x),purple.funcs$S(x))})))
+purples.lms.df<-data.frame(t(sapply(seq(purple1.wl,purple2.wl,30),function(x){c(NA,purple.funcs$l.lambda(x),purple.funcs$m.lambda(x),purple.funcs$s.lambda(x))})))
 colnames(purples.lms.df)=colnames(lms.df)
 lms.df<-rbind(lms.df,purples.lms.df %>% arrange(-row_number()))
 
 lms.df
 
-lmss<-as.list(data.frame(apply(lms.df[,c("L","M","S")],1,c)))
+lmss<-as.list(data.frame(apply(lms.df[,c("l.lambda","m.lambda","s.lambda")],1,c)))
 names(lmss)<-lms.df$wavelength
 lmss
 
@@ -40,25 +59,25 @@ lmss
 lmst<-matrix(c( 1.94735469,  -1.41445123,   0.36476327,
                 0.68990272,   0.34832189,            0,
                 0,            0,            1.93485343), byrow=T,3,3)
-                              
+
 
 #https://en.wikipedia.org/wiki/SRGB
 xyzrgbt<-t(matrix(c( 3.2406, -1.5372, -0.4986, 
-                    -0.9689,  1.8758,  0.0415,
+                     -0.9689,  1.8758,  0.0415,
                      0.0557, -0.2040,  1.0570),3,3))
 
 gammacor<-function(x){
-	if(x<=0.0031308){
-		12.92*x
-	} else {
-		a<-0.055
-		(1+a)*x^(1/2.4)-a
-	}
+  if(x<=0.0031308){
+    12.92*x
+  } else {
+    a<-0.055
+    (1+a)*x^(1/2.4)-a
+  }
 }
 
 
 lms2xyz<-function(x){lmst %*% x}
-                              
+
 lms2rgbtt<-function(x){((xyzrgbt %*% lmst) %*% x)}
 xyz.df<-data.frame(do.call("rbind",lapply(lmss,function(x){t(lms2xyz(x))})))
 colnames(xyz.df)<-c('X','Y','Z')
@@ -71,7 +90,8 @@ rgb.df<-do.call("rbind",lapply(lmss,function(x){pmin(1,pmax(0,sapply(lms2rgbtt(x
 colnames(rgb.df)<-c('R','G','B')
 
 spectrum.df<-cbind(lms.df,xyz.df,rgb.df)
-lmsnorm.df<-spectrum.df %>% select(Ln=L,Mn=M,Sn=S)
+
+lmsnorm.df<-spectrum.df %>% select(Ln=l.lambda,Mn=m.lambda,Sn=s.lambda)
 chromaticity.df<-spectrum.df %>% select(x=X,y=Y,z=Z)
 
 lmsnorm.df<-t(apply(lmsnorm.df,1,function(x){x/sum(x)}))
@@ -115,8 +135,75 @@ zoom
 paste(userMatrix,collapse=",")
 windowRect
 
+
+#luminous efficiency
+leff.df<-inner_join(sco.df,pho.df,by="wavelength")
+leff.df<-inner_join(leff.df,spectrum.df %>% select(c(wavelength,L,M,S,R,G,B)))  %>% gather(cone.type, response, c(V,Vp))
+leff.df
+ggplot(leff.df, aes(x=wavelength,y=response,group=cone.type))+
+  geom_point(size=2,aes(color=rgb(R,G,B)),data=. %>% filter(cone.type=="V"))+
+  geom_line(aes(color=rgb(R,G,B)), data=. %>% filter(cone.type=="V"))+
+  scale_color_identity()+
+  
+  geom_point(size=2,aes(color="grey80"),data=. %>% filter(cone.type=="Vp"))+
+  geom_line(aes(color="grey80"), data=. %>% filter(cone.type=="Vp"))+
+  
+  geom_text(data=data.frame(cone.type=c('scoptopic\nluminous\nefficiency','photopic\nluminous\nefficiency'),wavelength=c(400,605),response=c(0.5,0.5)), aes(label=cone.type),size=5,hjust=0,vjust=-1,color="white")+
+  labs(x="wavelength (nm)", y="normalized cone sensitivity")+
+  theme(
+    axis.text = element_text(color="black",size = 12),
+    axis.title=element_text(face="bold", size=14),
+    panel.grid.major = element_line(colour = "grey50"),
+    panel.grid.minor = element_line(colour = "grey40"),
+    panel.background = element_rect(fill = "black")
+  )+
+  scale_x_continuous(minor_breaks=seq(400,680,25), breaks=seq(400,680,50))
+
+
+
+#CMFs
+
+t.df <- spectrum.df %>% select(c(wavelength,r.lambda,g.lambda,b.lambda,x.lambda,y.lambda,z.lambda,l.lambda,m.lambda,s.lambda,R,G,B)) %>% gather(cmf, response, c(c(r.lambda,g.lambda,b.lambda,,x.lambda,y.lambda,z.lambda,l.lambda,m.lambda,s.lambda)))
+t.df <- %>% mutate(cmf = case_when(
+  startsWith(cmf,"r") ~ "rgb",
+  TRUE ~ "other"))
+
+t.df <- t.df %>% mutate(cmf.family = case_when(
+  startsWith(cmf,"r") ~ "CIE RGB",
+  startsWith(cmf,"g") ~ "CIE RGB",
+  startsWith(cmf,"b") ~ "CIE RGB",
+  startsWith(cmf,"x") ~ "CIE XYZ",
+  startsWith(cmf,"y") ~ "CIE XYZ",
+  startsWith(cmf,"z") ~ "CIE XYZ",
+  startsWith(cmf,"l") ~ "LMS",
+  startsWith(cmf,"m") ~ "LMS",
+  startsWith(cmf,"s") ~ "LMS",
+  TRUE ~ "other"))
+
+cmf_labels.df<-read_delim(paste0(data_dir,"cmflabels.csv"), delim=',', escape_double=FALSE, escape_backslash=TRUE)
+
+tikzDevice::tikz(file = paste0(data_dir,"cmfs.tex"), width = 5, height = 8,standAlone = T)
+ggplot(t.df, aes(x=wavelength,y=response,group=cmf,color=rgb(R,G,B)))+
+  facet_grid(rows = vars(cmf.family)) +
+  geom_point(size=2)+
+  geom_line()+
+  scale_color_identity()+
+  #geom_text(data=data.frame(cmf=c"L,M,S",wavelength=c(605,505,460),response=c(0.8,0.8,0.8)), aes(label=cmf),size=8,hjust=0,vjust=-1,color="white")+
+  labs(x="wavelength (nm)", y="relative response")+
+  theme(
+    axis.text = element_text(color="black",size = 12),
+    axis.title=element_text(face="bold", size=14),
+    panel.grid.major = element_line(colour = "grey50"),
+    panel.grid.minor = element_line(colour = "grey40"),
+    panel.background = element_rect(fill = "black")
+  )+
+  scale_x_continuous(minor_breaks=seq(400,680,25), breaks=seq(400,680,50))+
+  geom_text(data=cmf_labels.df,aes(label = label,group="none"),size=4,hjust=0,vjust=-1,color="white")
+dev.off()
+
+
 #cone spectral sensitivities
-t.df <- spectrum.df %>% select(c(wavelength,L,M,S)) %>% gather(cone.type, response, c(L,M,S))
+t.df <- spectrum.df %>% select(c(wavelength,l.lambda,m.lambda,s.lambda,R,G,B)) %>% gather(cone.type, response, c(l.lambda,m.lambda,s.lambda))
 t.df
 
 ggplot(t.df, aes(x=wavelength,y=response,group=cone.type,color=rgb(R,G,B)))+

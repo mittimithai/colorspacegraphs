@@ -1,0 +1,10 @@
+cmf.family,label,wavelength,response
+"CIE RGB","$\\overline{r}(\\lambda)$",650,1.0
+"CIE RGB","$\\overline{g}(\\lambda)$",525,1.2
+"CIE RGB","$\\overline{b}(\\lambda)$",475,0.6
+"CIE XYZ","$\\overline{x}(\\lambda)$",650,0.4
+"CIE XYZ","$\\overline{y}(\\lambda)$",525,1.0
+"CIE XYZ","$\\overline{z}(\\lambda)$",475,1.2
+"LMS","$\\overline{l}(\\lambda)$",650,0.2
+"LMS","$\\overline{m}(\\lambda)$",525,1.1
+"LMS","$\\overline{s}(\\lambda)$",475,0.6
